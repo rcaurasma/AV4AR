@@ -5,51 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>AR + Video + Formulario</title>
   <meta name="description" content="MVP WebAR con botón de video y formulario de Google." />
-  <!-- A-Frame (1.2.0) + AR.js (compatibles) -->
-  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
+  <!-- A-Frame (1.0.4) + AR.js (3.3.2) más compatibles en móviles -->
+  <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.2/aframe/build/aframe-ar.js"></script>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; background: #000; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-    /* Overlays */
-    .overlay {
-      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
-      background: rgba(0,0,0,.8); z-index: 9999; color: #fff;
-    }
+    .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.8); z-index: 9999; color: #fff; }
     .overlay.show { display: flex; }
-    .modal {
-      width: min(920px, 95vw); height: min(70vh, 65rem); background: #111; border-radius: 12px; overflow: hidden; border: 1px solid #333;
-      box-shadow: 0 10px 30px rgba(0,0,0,.5);
-      display: flex; flex-direction: column;
-    }
-    .modal-header {
-      display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #181818; border-bottom: 1px solid #2a2a2a;
-    }
+    .modal { width: min(920px, 95vw); height: min(70vh, 65rem); background: #111; border-radius: 12px; overflow: hidden; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,.5); display: flex; flex-direction: column; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #181818; border-bottom: 1px solid #2a2a2a; }
     .modal-title { font-weight: 600; }
     .modal-actions { display: flex; gap: 8px; }
-    button, .btn {
-      appearance: none; border: none; background: #ff5722; color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 14px; cursor: pointer;
-    }
+    button, .btn { appearance: none; border: none; background: #ff5722; color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 14px; cursor: pointer; }
     button.secondary, .btn.secondary { background: #2a2a2a; }
     button.link, .btn.link { background: transparent; color: #bbb; text-decoration: underline; }
     .modal-body { flex: 1; background: #000; display: grid; }
     .modal-body iframe { width: 100%; height: 100%; border: 0; }
-    /* Fallback sin AR */
-    #fallback {
-      position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px;
-      background: linear-gradient(180deg, #141414, #0a0a0a); color: #fff; text-align: center; z-index: 5000;
-    }
+    #fallback { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; background: linear-gradient(180deg, #141414, #0a0a0a); color: #fff; text-align: center; z-index: 5000; }
     #fallback.show { display: flex; }
-    #fallback .card {
-      background: #111; border: 1px solid #2a2a2a; border-radius: 12px; padding: 18px; max-width: 580px; width: 100%;
-    }
+    #fallback .card { background: #111; border: 1px solid #2a2a2a; border-radius: 12px; padding: 18px; max-width: 580px; width: 100%; }
     #fallback h1 { font-size: 20px; margin: 0 0 8px; }
     #fallback p { margin: 0 0 16px; color: #c9c9c9; }
-    /* Pequeño aviso de marcador */
-    #hint {
-      position: fixed; left: 12px; bottom: 12px; background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
-      color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 12px; z-index: 3000; border: 1px solid rgba(255,255,255,.1);
-    }
-    /* Botón visible para forzar modo sin AR */
+    #hint { position: fixed; left: 12px; bottom: 12px; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 12px; z-index: 3000; border: 1px solid rgba(255,255,255,.1); }
     #forceFallbackBtn { position: fixed; right: 12px; bottom: 12px; z-index: 4000; }
   </style>
 </head>
@@ -59,8 +36,8 @@
   <a-scene
     vr-mode-ui="enabled: false"
     embedded
-    renderer="antialias: true; colorManagement: true"
-    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono; patternRatio: 0.9;"
+    renderer="antialias: true; alpha: true; colorManagement: true"
+    arjs="sourceType: webcam; facingMode: environment; debugUIEnabled: false; detectionMode: mono; patternRatio: 0.9;"
   >
     <a-assets>
       <!-- Puedes cargar un glTF si quieres:
@@ -68,43 +45,30 @@
       -->
     </a-assets>
 
-    <!-- Marcador HIRO o tu patrón (si cambiaste a pattern, actualiza aquí) -->
+    <!-- Marcador (usa preset hiro o tu patrón personalizado) -->
     <a-marker preset="hiro">
-      <!-- Efecto visual simple: caja girando -->
       <a-box position="0 0.5 0" rotation="0 45 0" color="#4CC3D9"
              animation="property: rotation; to: 0 405 0; loop: true; dur: 3000; easing: linear"></a-box>
 
-      <!-- Botón dentro del escenario AR -->
       <a-entity position="0 0 0.6" rotation="-30 0 0">
-        <a-plane id="arButton" class="clickable" width="1.4" height="0.42" color="#FF5722" opacity="0.95"
-                 material="shader: flat">
-        </a-plane>
+        <a-plane id="arButton" class="clickable" width="1.4" height="0.42" color="#FF5722" opacity="0.95" material="shader: flat"></a-plane>
         <a-text value="Ver video" align="center" width="2.5" color="#ffffff" position="0 0 0.01"></a-text>
       </a-entity>
 
-      <!-- Texto guía -->
       <a-text value="Apunta al marcador HIRO" align="center" color="#fff" position="0 1.2 0" width="3"></a-text>
-
-      <!-- Si usas un modelo glTF:
-      <a-entity gltf-model="#logoModel" position="0 0 0" scale="0.5 0.5 0.5"></a-entity>
-      -->
     </a-marker>
 
-    <!-- Cámara + cursor para detectar clic/tap en móviles -->
     <a-entity camera>
       <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
     </a-entity>
   </a-scene>
 
-  <!-- Hint de uso -->
   <div id="hint">Escanea el marcador HIRO. Si no ves la cámara, toca “Usar sin AR”.</div>
 
-  <!-- Botón para forzar modo sin AR (si la cámara se queda negra) -->
   <div id="forceFallbackBtn">
     <button id="forceFallback" class="secondary">Usar sin AR</button>
   </div>
 
-  <!-- Fallback sin AR -->
   <div id="fallback" aria-live="polite">
     <div class="card">
       <h1>Experiencia AR</h1>
@@ -116,7 +80,6 @@
     </div>
   </div>
 
-  <!-- Overlay de Video -->
   <div id="videoOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="videoTitle">
     <div class="modal">
       <div class="modal-header">
@@ -136,7 +99,6 @@
     </div>
   </div>
 
-  <!-- Overlay de Formulario (Google Forms) -->
   <div id="formOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="formTitle">
     <div class="modal">
       <div class="modal-header">
@@ -156,7 +118,6 @@
   </div>
 
   <script>
-    // Utilidades overlay
     const videoOverlay = document.getElementById('videoOverlay');
     const formOverlay  = document.getElementById('formOverlay');
     const ytFrame      = document.getElementById('ytFrame');
@@ -169,53 +130,29 @@
 
     function showVideo(){
       const base = "https://www.youtube.com/embed/6Ss_SSvLJgw?autoplay=1&rel=0&modestbranding=1&playsinline=1";
-      ytFrame.src = base;
-      show(videoOverlay);
+      ytFrame.src = base; show(videoOverlay);
     }
-    function hideVideo(){
-      ytFrame.src = "about:blank";
-      hide(videoOverlay);
-    }
-    function showForm(){
-      openFormNew.href = formFrame.src.replace('&embedded=true','').replace('?embedded=true','');
-      show(formOverlay);
-    }
+    function hideVideo(){ ytFrame.src = "about:blank"; hide(videoOverlay); }
+    function showForm(){ openFormNew.href = formFrame.src.replace('&embedded=true','').replace('?embedded=true',''); show(formOverlay); }
     function hideForm(){ hide(formOverlay); }
 
-    // Botones de overlays
     document.getElementById('closeVideo').addEventListener('click', hideVideo);
     document.getElementById('btnToForm').addEventListener('click', () => { hideVideo(); showForm(); });
     document.getElementById('closeForm').addEventListener('click', hideForm);
 
-    // Botón AR dentro de la escena
     const arButton = document.getElementById('arButton');
     arButton.addEventListener('click', showVideo);
 
-    // Fallback sin AR
     document.getElementById('fallbackVideo').addEventListener('click', showVideo);
     document.getElementById('fallbackForm').addEventListener('click', showForm);
 
-    // Botón visible para forzar modo sin AR
-    document.getElementById('forceFallback').addEventListener('click', () => {
-      show(fallback);
-    });
+    document.getElementById('forceFallback').addEventListener('click', () => { show(fallback); });
 
-    // Manejo de errores y verificación de cámara
     const scene = document.querySelector('a-scene');
+    scene.addEventListener('camera-error', () => { show(fallback); });
+    scene.addEventListener('arjs-video-loaded', () => { hide(fallback); });
 
-    // Si getUserMedia falla
-    scene.addEventListener('camera-error', () => {
-      show(fallback);
-    });
-
-    // Si el video de AR se carga correctamente ocultamos fallback si estuviera
-    scene.addEventListener('arjs-video-loaded', () => {
-      hide(fallback);
-    });
-
-    // Failsafe: si en ~3s no hay video real, mostramos fallback
     function ensureCameraPlayback() {
-      // AR.js suele crear un #arjs-video
       const check = () => {
         const v = document.querySelector('#arjs-video') || document.querySelector('video[playsinline][autoplay]');
         const ok = v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0;
@@ -224,15 +161,6 @@
       setTimeout(check, 3000);
     }
     ensureCameraPlayback();
-
-    // Ajusta hint en iOS por notch
-    function setSafeAreaInsets() {
-      const hint = document.getElementById('hint');
-      const safeBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sat-b') || 0, 10);
-      hint.style.bottom = (12 + (Number.isFinite(safeBottom) ? safeBottom : 0)) + 'px';
-    }
-    window.addEventListener('resize', setSafeAreaInsets);
-    setSafeAreaInsets();
   </script>
 </body>
 </html>
