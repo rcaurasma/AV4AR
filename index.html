@@ -25,7 +25,11 @@
     #fallback .card { background: #111; border: 1px solid #2a2a2a; border-radius: 12px; padding: 18px; max-width: 580px; width: 100%; }
     #fallback h1 { font-size: 20px; margin: 0 0 8px; }
     #fallback p { margin: 0 0 16px; color: #c9c9c9; }
-    #hint { position: fixed; left: 12px; bottom: 12px; background: rgba(0,0,0,.55); color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 12px; z-index: 3000; border: 1px solid rgba(255,255,255,.1); }
+    #hint { position: fixed; left: 12px; bottom: 12px; background: rgba(0,0,0,.55); color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 12px; z-index: 3000; border: 1px solid rgba(255,255,255,.1); transition: opacity 0.3s; }
+    #arLoading { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.8); z-index: 6000; color: #fff; flex-direction: column; gap: 16px; }
+    #arLoading.show { display: flex; }
+    .loading-spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,.3); border-top: 3px solid #1e88e5; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     #topBar { position: fixed; top: 0; left: 0; right: 0; z-index: 4000; display: flex; gap: 8px; padding: 10px; justify-content: center; background: linear-gradient(180deg, rgba(0,0,0,.7), rgba(0,0,0,0)); }
     #startAR { background: #1e88e5; }
   </style>
@@ -42,6 +46,12 @@
   <div id="arRoot"></div>
 
   <div id="hint">Escanea el marcador HIRO. Si no ves la cámara, toca “Usar sin AR”.</div>
+  <!-- Loading indicator for AR initialization -->
+  <div id="arLoading" aria-live="polite">
+    <div class="loading-spinner"></div>
+    <div>Iniciando cámara AR...</div>
+    <div style="font-size: 12px; opacity: 0.7;">Por favor, permite el acceso a la cámara</div>
+  </div>
 
   <!-- Fallback sin AR -->
   <div id="fallback" aria-live="polite">
@@ -103,6 +113,7 @@
     const openFormNew  = document.getElementById('openFormNew');
     const fallback     = document.getElementById('fallback');
     const arRoot       = document.getElementById('arRoot');
+    const arLoading    = document.getElementById('arLoading');
 
     function show(el){ el.classList.add('show'); document.body.style.overscrollBehaviorY = 'contain'; }
     function hide(el){ el.classList.remove('show'); document.body.style.overscrollBehaviorY = 'auto'; }
@@ -124,19 +135,43 @@
     document.getElementById('forceFallback').addEventListener('click', () => { show(fallback); });
 
     // Crea la escena AR SOLO cuando el usuario pulsa "Iniciar AR"
-    document.getElementById('startAR').addEventListener('click', () => {
+    document.getElementById('startAR').addEventListener('click', async () => {
       // Evita duplicados si el usuario pulsa varias veces
       if (document.querySelector('a-scene')) return;
+
+      // Pre-request camera permission to avoid timing issues
+      try {
+        console.log('Requesting camera permission...');
+        show(arLoading); // Show loading indicator
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' }, 
+          audio: false 
+        });
+        console.log('Camera permission granted, stopping temporary stream');
+        stream.getTracks().forEach(track => track.stop());
+      } catch (error) {
+        console.log('Camera permission denied or not available:', error);
+        hide(arLoading);
+        show(fallback);
+        return;
+      }
+
+      // Small delay to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       const scene = document.createElement('a-scene');
       scene.setAttribute('embedded', '');
       scene.setAttribute('vr-mode-ui', 'enabled: false');
-      scene.setAttribute('renderer', 'antialias: true; alpha: true; colorManagement: true; powerPreference: high-performance');
-      scene.setAttribute('arjs', 'sourceType: webcam; facingMode: environment; debugUIEnabled: false; detectionMode: mono; patternRatio: 0.9;');
+      scene.setAttribute('renderer', 'antialias: true; alpha: true; colorManagement: true; powerPreference: high-performance; precision: medium; logarithmicDepthBuffer: false;');
+      scene.setAttribute('arjs', 'sourceType: webcam; facingMode: environment; debugUIEnabled: false; detectionMode: mono; patternRatio: 0.9; trackingMethod: best; matrixCodeType: 3x3; maxDetectionRate: 60; canvasWidth: 640; canvasHeight: 480;');
 
       // Marcador HIRO; si tienes tu patrón, reemplaza por type="pattern" url="assets/tu.patt"
       const marker = document.createElement('a-marker');
       marker.setAttribute('preset', 'hiro');
+      marker.setAttribute('smooth', 'true');
+      marker.setAttribute('smoothCount', '10');
+      marker.setAttribute('smoothTolerance', '0.01');
+      marker.setAttribute('smoothThreshold', '5');
 
       const box = document.createElement('a-box');
       box.setAttribute('position', '0 0.5 0');
@@ -190,15 +225,52 @@
 
       arRoot.appendChild(scene);
 
-      // Eventos y salvaguardas
+      // Eventos y salvaguardas con timeouts más generosos
       const fallbackTimer = setTimeout(() => {
         const v = document.querySelector('#arjs-video') || document.querySelector('video[playsinline][autoplay]');
         const ok = v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0;
-        if (!ok) show(fallback);
-      }, 3000);
+        console.log('Fallback check:', { video: !!v, readyState: v?.readyState, dimensions: v ? `${v.videoWidth}x${v.videoHeight}` : 'none' });
+        if (!ok) {
+          console.log('AR initialization failed, showing fallback');
+          hide(arLoading);
+          show(fallback);
+        } else {
+          console.log('AR initialized successfully');
+          hide(arLoading);
+        }
+      }, 8000); // Increased from 3000 to 8000ms
 
-      scene.addEventListener('camera-error', () => { clearTimeout(fallbackTimer); show(fallback); });
-      scene.addEventListener('arjs-video-loaded', () => { clearTimeout(fallbackTimer); hide(fallback); });
+      scene.addEventListener('camera-error', (e) => { 
+        console.log('Camera error event:', e);
+        clearTimeout(fallbackTimer); 
+        hide(arLoading);
+        show(fallback); 
+      });
+      
+      scene.addEventListener('arjs-video-loaded', (e) => { 
+        console.log('AR video loaded successfully:', e);
+        clearTimeout(fallbackTimer); 
+        hide(arLoading);
+        hide(fallback); 
+      });
+
+      // Additional event listeners for better camera handling
+      scene.addEventListener('camera-init', (e) => {
+        console.log('Camera init event:', e);
+      });
+
+      scene.addEventListener('enter-vr', (e) => {
+        console.log('Enter VR event:', e);
+      });
+
+      // Marker detection events for debugging
+      marker.addEventListener('markerFound', () => {
+        console.log('Marker found!');
+      });
+
+      marker.addEventListener('markerLost', () => {
+        console.log('Marker lost!');
+      });
 
       // Click en botón AR
       plane.addEventListener('click', showVideo);
