@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>AR + Video + Formulario</title>
   <meta name="description" content="MVP WebAR con botón de video y formulario de Google." />
-  <!-- A-Frame y AR.js (gratis) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- A-Frame (1.2.0) + AR.js (compatibles) -->
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; background: #000; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
@@ -49,6 +49,8 @@
       position: fixed; left: 12px; bottom: 12px; background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
       color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 12px; z-index: 3000; border: 1px solid rgba(255,255,255,.1);
     }
+    /* Botón visible para forzar modo sin AR */
+    #forceFallbackBtn { position: fixed; right: 12px; bottom: 12px; z-index: 4000; }
   </style>
 </head>
 <body>
@@ -60,15 +62,14 @@
     renderer="antialias: true; colorManagement: true"
     arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono; patternRatio: 0.9;"
   >
-    <!-- Activos opcionales (no requeridos para el MVP con primitivas) -->
     <a-assets>
       <!-- Puedes cargar un glTF si quieres:
       <a-asset-item id="logoModel" src="ruta-a-tu-modelo.glb"></a-asset-item>
       -->
     </a-assets>
 
-    <!-- Marcador HIRO (imprime el marcador HIRO y apúntale con la cámara) -->
-    <a-marker type="pattern" url="assets/grad.patt">
+    <!-- Marcador HIRO o tu patrón (si cambiaste a pattern, actualiza aquí) -->
+    <a-marker preset="hiro">
       <!-- Efecto visual simple: caja girando -->
       <a-box position="0 0.5 0" rotation="0 45 0" color="#4CC3D9"
              animation="property: rotation; to: 0 405 0; loop: true; dur: 3000; easing: linear"></a-box>
@@ -90,23 +91,24 @@
     </a-marker>
 
     <!-- Cámara + cursor para detectar clic/tap en móviles -->
-    <a-entity camera look-controls>
-      <!-- Cursor y raycaster para tocar objetos con clase .clickable -->
-      <a-entity
-        cursor="rayOrigin: mouse"
-        raycaster="objects: .clickable">
-      </a-entity>
+    <a-entity camera>
+      <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
     </a-entity>
   </a-scene>
 
   <!-- Hint de uso -->
-  <div id="hint">Escanea el marcador HIRO. Si no ves la cámara, usa el modo sin AR.</div>
+  <div id="hint">Escanea el marcador HIRO. Si no ves la cámara, toca “Usar sin AR”.</div>
 
-  <!-- Fallback sin AR (si el usuario no concede cámara o el navegador no soporta WebAR) -->
+  <!-- Botón para forzar modo sin AR (si la cámara se queda negra) -->
+  <div id="forceFallbackBtn">
+    <button id="forceFallback" class="secondary">Usar sin AR</button>
+  </div>
+
+  <!-- Fallback sin AR -->
   <div id="fallback" aria-live="polite">
     <div class="card">
       <h1>Experiencia AR</h1>
-      <p>No se pudo acceder a la cámara. Puedes continuar sin AR.</p>
+      <p>No se pudo acceder a la cámara o el dispositivo no soporta WebAR. Puedes continuar sin AR.</p>
       <div style="display:flex; gap:10px; justify-content:center; flex-wrap: wrap;">
         <button id="fallbackVideo">Ver video</button>
         <button id="fallbackForm" class="secondary">Llenar formulario</button>
@@ -125,7 +127,6 @@
         </div>
       </div>
       <div class="modal-body">
-        <!-- YouTube embed: se reproduce tras tu clic (autoplay permitido por gesto del usuario) -->
         <iframe id="ytFrame"
                 src="https://www.youtube.com/embed/6Ss_SSvLJgw?autoplay=1&rel=0&modestbranding=1&playsinline=1"
                 title="Video"
@@ -146,8 +147,6 @@
         </div>
       </div>
       <div class="modal-body">
-        <!-- REEMPLAZA con el enlace embed de tu Google Form:
-             Abre tu formulario -> Enviar -> icono </> -> copia el src y pégalo abajo -->
         <iframe id="formFrame"
                 src="https://docs.google.com/forms/d/e/1FAIpQLSdI3dPM8zakrwwggy4zu7G7lGnqVrAl_qUee6mBGyeuX2IBbw/viewform?embedded=true"
                 title="Formulario"
@@ -163,12 +162,12 @@
     const ytFrame      = document.getElementById('ytFrame');
     const formFrame    = document.getElementById('formFrame');
     const openFormNew  = document.getElementById('openFormNew');
+    const fallback     = document.getElementById('fallback');
 
     function show(el){ el.classList.add('show'); document.body.style.overscrollBehaviorY = 'contain'; }
     function hide(el){ el.classList.remove('show'); document.body.style.overscrollBehaviorY = 'auto'; }
 
     function showVideo(){
-      // Reinicia el player para asegurar reproducción tras clic
       const base = "https://www.youtube.com/embed/6Ss_SSvLJgw?autoplay=1&rel=0&modestbranding=1&playsinline=1";
       ytFrame.src = base;
       show(videoOverlay);
@@ -178,17 +177,10 @@
       hide(videoOverlay);
     }
     function showForm(){
-      // Si el usuario no reemplazó el form, ofrecemos un ejemplo de prueba (solo para ver algo)
-      if (!formFrame.src || formFrame.src.includes('REEMPLAZA_CON_URL_EMBED_DE_TU_GOOGLE_FORM')) {
-        formFrame.src = "https://docs.google.com/forms/d/e/1FAIpQLSeQ2x1oK6M6ZQnWz9g3l1R2m8O7b9xGq0mS0-example/viewform?embedded=true";
-        // Nota: este ID es ilustrativo. Reemplázalo por tu propio embed real.
-      }
       openFormNew.href = formFrame.src.replace('&embedded=true','').replace('?embedded=true','');
       show(formOverlay);
     }
-    function hideForm(){
-      hide(formOverlay);
-    }
+    function hideForm(){ hide(formOverlay); }
 
     // Botones de overlays
     document.getElementById('closeVideo').addEventListener('click', hideVideo);
@@ -200,23 +192,38 @@
     arButton.addEventListener('click', showVideo);
 
     // Fallback sin AR
-    const fallback = document.getElementById('fallback');
     document.getElementById('fallbackVideo').addEventListener('click', showVideo);
     document.getElementById('fallbackForm').addEventListener('click', showForm);
 
-    // Si la cámara falla o no hay permisos, mostramos fallback
+    // Botón visible para forzar modo sin AR
+    document.getElementById('forceFallback').addEventListener('click', () => {
+      show(fallback);
+    });
+
+    // Manejo de errores y verificación de cámara
     const scene = document.querySelector('a-scene');
+
+    // Si getUserMedia falla
     scene.addEventListener('camera-error', () => {
-      fallback.classList.add('show');
+      show(fallback);
     });
-    // Si se inicia bien, ocultamos fallback por si estaba visible
-    scene.addEventListener('loaded', () => {
-      // Espera breve para ver si el source de la cámara está ok
-      setTimeout(() => {
-        const arSystem = scene.systems['arjs'] || {};
-        // No hay una API estándar de "ok", así que mantenemos el hint y que el usuario vea la cámara
-      }, 800);
+
+    // Si el video de AR se carga correctamente ocultamos fallback si estuviera
+    scene.addEventListener('arjs-video-loaded', () => {
+      hide(fallback);
     });
+
+    // Failsafe: si en ~3s no hay video real, mostramos fallback
+    function ensureCameraPlayback() {
+      // AR.js suele crear un #arjs-video
+      const check = () => {
+        const v = document.querySelector('#arjs-video') || document.querySelector('video[playsinline][autoplay]');
+        const ok = v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0;
+        if (!ok) show(fallback);
+      };
+      setTimeout(check, 3000);
+    }
+    ensureCameraPlayback();
 
     // Ajusta hint en iOS por notch
     function setSafeAreaInsets() {
