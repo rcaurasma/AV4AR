@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Camera Test</title>
+  <style>html,body{margin:0;height:100%;background:#000;color:#fff;font-family:system-ui} main{display:flex;gap:16px;flex-direction:column;align-items:center;justify-content:center;height:100vh} video{max-width:95vw;max-height:70vh;background:#111;border:1px solid #333;border-radius:8px}</style>
+</head>
+<body>
+  <main>
+    <h1>Prueba de cámara</h1>
+    <p>Si ves el video abajo, la cámara funciona en este navegador.</p>
+    <div>
+      <button id="start">Iniciar cámara (trasera)</button>
+      <button id="stop" disabled>Detener</button>
+    </div>
+    <video id="v" playsinline autoplay muted></video>
+    <pre id="log" style="white-space:pre-wrap;max-width:95vw"></pre>
+  </main>
+  <script>
+    const v = document.getElementById('v');
+    const logEl = document.getElementById('log');
+    let stream;
+    function log(msg){ logEl.textContent += msg + '\n'; }
+
+    async function start(){
+      try{
+        document.getElementById('start').disabled = true;
+        const constraints = { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
+        log('Solicitando cámara con constraints: '+ JSON.stringify(constraints));
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        v.srcObject = stream;
+        await v.play();
+        log('Cámara iniciada. Tamaño: ' + v.videoWidth + 'x' + v.videoHeight);
+        document.getElementById('stop').disabled = false;
+      }catch(e){
+        log('Error al iniciar cámara: ' + e.name + ': ' + e.message);
+        document.getElementById('start').disabled = false;
+      }
+    }
+    function stop(){
+      if(stream){ stream.getTracks().forEach(t=>t.stop()); }
+      v.srcObject = null;
+      document.getElementById('stop').disabled = true;
+      document.getElementById('start').disabled = false;
+      log('Cámara detenida');
+    }
+    document.getElementById('start').addEventListener('click', start);
+    document.getElementById('stop').addEventListener('click', stop);
+
+    if(!('mediaDevices' in navigator)){
+      log('navigator.mediaDevices no disponible en este navegador.');
+    }
+  </script>
+</body>
+</html>
